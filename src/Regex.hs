@@ -14,6 +14,12 @@ import Data.List
 
 import Debug.Trace
 
+append :: a -> [a] -> [a]
+append a l = l ++ [a]
+
+prepend :: a -> [a] -> [a]
+prepend = (:)
+
 data Regex =
     Cons Regex Regex -- ^ @Cons a b@ matches @a@ then matches @b@.
     | Dummy -- ^ Matches an empty string.
@@ -37,9 +43,13 @@ data Regex =
 type Match = M.Map Int String
 type Capture = Match
 
--- | Combine two matches/captures. In @combineResult a b@, if both @a@ and @b@ both have a capture group numbered the same, the one from @b@ is used.
-combineResult :: Match -> Match -> Match
-combineResult a b = M.insert 0 (a ! 0 ++ b ! 0) $ M.union b a
+-- | Combine two matches, and the whole matches are concantated together. In @combineMatch a b@, if both @a@ and @b@ both have a capture group numbered the same, the one from @b@ is used.
+combineMatch :: Match -> Match -> Match
+combineMatch a b = M.insert 0 (a ! 0 ++ b ! 0) $ combineCapture a b
+
+-- | Combine two captures. In @combineCapture a b@, if both @a@ and @b@ both have a capture group numbered the same, the one from @b@ is used.
+combineCapture :: Capture -> Capture -> Capture
+combineCapture = flip M.union
 
 -- | Extract the full match (capture group number @0@) from a match.
 fullMatch :: Match -> String
@@ -53,9 +63,9 @@ setMatch m s = M.insert 0 s m
 stripResult :: Match -> String -> String
 stripResult m s = fromJust $ stripPrefix (fullMatch m) s
 
--- | Set a match to match an empty string.
-skip :: Capture -> Match
-skip c = setMatch c ""
+-- | Match an empty string.
+skip :: Match
+skip = M.fromList [(0, "")]
 
 -- | A match that indicates illegal match. (a dead end in backtracking).
 -- Not the same as @skip@!
@@ -74,10 +84,10 @@ match captures (Cons a b) s = do
     rstA <- match captures a s
     let remain = stripResult rstA s
         -- b should have access to both previous captures and a's captures.
-        combinedCapture = combineResult captures rstA
+        combinedCapture = combineCapture captures rstA
     rstB <- match combinedCapture b remain
-    --  not `combineResult combinedCapture rstB` because `match` does not carry prvious captures.
-    return $ combineResult rstA rstB
+    --  not `combineMatch combinedCapture rstB` because `match` does not carry previous captures.
+    return $ combineMatch rstA rstB
 
 match captures (Capture i exp) s = do
     rst <- match captures exp s
@@ -95,48 +105,36 @@ match captures (Character c) (x:xs) =
     then let s = [c] in [M.singleton 0 s]
     else noMatch
 
-match captures (NoneOrOnce exp) s = match captures exp s ++ [skip captures]
+match captures (NoneOrOnce exp) s = match captures exp s ++ [skip]
 
-match captures (NoneOrOnceLazy exp) s = (skip captures):(match captures exp s)
+match captures (NoneOrOnceLazy exp) s = skip:(match captures exp s)
 
-match captures (NoneOrMore exp) s =
-    case match captures exp s of
-        [] -> [skip captures]
-        l -> do
-            this <- l
-            next <- (match captures (NoneOrMore exp) $ stripResult this s) ++ [skip captures]
-            return $ combineResult this next
+match captures (NoneOrMore exp) s = append skip $ do
+    this <- match captures exp s
+    next <- match captures (NoneOrMore exp) $ stripResult this s
+    return $ combineMatch this next
 
-match captures (NoneOrMoreLazy exp) s =
-    case match captures exp s of
-        [] -> [skip captures]
-        l -> do
-            this <- l
-            next <- (skip captures):(match captures (NoneOrMoreLazy exp) $ stripResult this s)
-            return $ combineResult this next
+match captures (NoneOrMoreLazy exp) s = prepend skip $ do
+    this <- match captures exp s
+    next <- match captures (NoneOrMoreLazy exp) $ stripResult this s
+    return $ combineMatch this next
 
-match captures (UpTo exp 0) _ = [skip captures]
-match captures (UpTo exp n) s =
-    case match captures exp s of
-        [] -> [skip captures]
-        l -> do
-            this <- l
-            next <- (match captures (UpTo exp (n-1)) $ stripResult this s) ++ [skip captures]
-            return $ combineResult this next
+match captures (UpTo exp 0) _ = [skip]
+match captures (UpTo exp n) s = append skip $ do
+    this <- match captures exp s 
+    next <- match captures (UpTo exp (n-1)) $ stripResult this s
+    return $ combineMatch this next
 
-match captures (UpToLazy exp 0) _ = [skip captures]
-match captures (UpToLazy exp n) s =
-    case match captures exp s of
-        [] -> [skip captures]
-        l -> do
-            this <- l
-            next <- (skip captures):(match captures (UpTo exp (n-1)) $ stripResult this s)
-            return $ combineResult this next
+match captures (UpToLazy exp 0) _ = [skip]
+match captures (UpToLazy exp n) s = prepend skip $ do
+    this <- match captures exp s
+    next <- match captures (UpTo exp (n-1)) $ stripResult this s
+    return $ combineMatch this next
 
 match captures (LookAhead exp) s =
     case match captures exp s of
         [] -> noMatch
-        l -> [skip captures]
+        l -> [skip]
 
 match captures (Alternative a b) s =
     let rstA = match captures a s
