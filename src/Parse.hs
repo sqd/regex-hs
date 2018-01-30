@@ -121,7 +121,7 @@ exprSeq = do
     -- Try parsing alternatives, with each option being a sequence of consecutive singleton expressions. If the expression is not of alternative form, singletons would just be a list with only one element.
     singletons <- sepBy (many singletonExpr) (char '|')
     -- If a option-sequence is empty (could happen!), just return `Dummy`.; otherwise, concantate them together.
-    let chained = (\l -> if null l then Dummy else foldl1 Cons l) <$> singleton
+    let chained = (\l -> if null l then Dummy else foldl1 Cons l) <$> singletons
     -- If there is no sequence, return `Dummy`; otherwise, if there is just one option-sequence, this is not an alternative construct, so we just extract the sequence; else, this is an alternaive structure, so we chain the sequences with `Alternative`.
     return $ case chained of
         [] -> Dummy
