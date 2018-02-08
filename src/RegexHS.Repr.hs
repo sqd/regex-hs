@@ -1,4 +1,4 @@
-module Repr
+module RegexHS.Repr
     (stringify) where
 
 import Regex

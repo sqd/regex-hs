@@ -1,4 +1,4 @@
-module Regex
+module RegexHS.Regex
     ( Regex (..)
     , times
     , range

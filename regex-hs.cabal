@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: cb9d4a9017a8df12fa62fbb1ef233d8b6be1effc645abd42744297d834b999e8
+-- hash: 5884e6c78006e4f330bdc7a0bce4723362faf4579a3cc35b2da8342a7dccdbb3
 
 name:           regex-hs
 version:        0.1.0.0
@@ -35,11 +35,6 @@ library
     , containers
     , mtl
     , parsec
-  exposed-modules:
-      Parse
-      Regex
-      Repr
-      Test
   other-modules:
       Paths_regex_hs
   default-language: Haskell2010

@@ -1,5 +1,6 @@
-module Parse
+module RegexHS.Parse
     ( parser
+    , parse
     ) where
 
 import Regex
@@ -135,3 +136,6 @@ parser = do
     -- Failure if there is any unparsed leftover.
     notFollowedBy anyChar
     return rst
+
+-- | Parse a string to a regex.
+parse = runP Parse.parser 1 ""

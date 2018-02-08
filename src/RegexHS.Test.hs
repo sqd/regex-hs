@@ -1,4 +1,4 @@
-module Test
+module RegexHS.Test
     ( parse
     , match
     , stringify
